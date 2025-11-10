@@ -1,0 +1,47 @@
+TIMESTAMP: 20251110_121508
+
+
+lSelectColumns = ['src_port',  'dst_port', 'protocol', 'bidirectional_duration_ms', 'bidirectional_packets', 
+                  'dst2src_first_seen_ms', 'bidirectional_min_ps', 'bidirectional_mean_ps', 
+                  'bidirectional_stddev_ps', 'dst2src_min_ps', 'dst2src_mean_ps', 'dst2src_max_ps', 
+                  'bidirectional_mean_piat_ms', 'splt_ps', 'application_name']
+                  
+                  
+scaler: sk learn Min Max
+
+encoder: RM_ALIAS_20250807_132852_encoders
+
+class AutoEncoder(nn.Module):
+    def __init__(self):
+        super(AutoEncoder, self).__init__()
+        
+        # Encoder layers
+        self.encoder = nn.Sequential(
+            nn.Linear(neuron_count, neuron_count), 
+            nn.Tanh(),
+            nn.Linear(neuron_count, neuron_count), 
+            nn.Tanh(),
+            nn.Linear(neuron_count, neuron_count),
+            nn.Tanh(),
+#             nn.Linear(neuron_count, neuron_count),
+#             nn.Tanh(),
+#             nn.Linear(neuron_count, neuron_count),
+#             nn.Tanh(),
+            nn.Linear(neuron_count, int(neuron_count / 2))  
+        )
+        
+        # Decoder layers
+        self.decoder = nn.Sequential(
+            nn.Linear(int(neuron_count / 2), neuron_count),
+            nn.Tanh(),
+            # nn.Linear(neuron_count, neuron_count), 
+            # nn.Tanh(),
+            # nn.Linear(neuron_count, neuron_count),
+            # nn.Tanh(),
+            nn.Linear(neuron_count, neuron_count),
+            nn.Tanh(),
+            nn.Linear(neuron_count, neuron_count),
+            nn.Tanh(),
+            nn.Linear(neuron_count, neuron_count),
+
+        )
