@@ -14,7 +14,7 @@ from streamz import Stream
 from dotenv import load_dotenv
 
 from models_server.data_scheme import cNetworkData, cSensorData
-from models_server.data_config import NETWORK_FEATURE_LIST
+from models_server.data_config import NETWORK_FEATURE_LIST, SENSOR_FEATURE_LIST
 from logging_setup import get_logger
 # Load environment variables from .env file in the main script directory
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -36,7 +36,7 @@ class NetworkProbe:
         self._server_task = None
         self.logger = get_logger("NetworkProbe")
         # self.logger = CustomLogger(LOGS_PATH)
-        self.encoder = None
+        self.encoders = None
         self.scaler = None
         self.features_to_keep = NETWORK_FEATURE_LIST
         self.flow_counter = 0
@@ -45,86 +45,87 @@ class NetworkProbe:
         self.logger.info("NetworkProbe initialized.")
 
     def _preprocess_and_parse_flow(self, b: bytes):
-        """
-        Preprocesses and parses a network flow represented as a JSON-encoded byte string.
-        This method performs the following steps:
-            1. Checks if the encoder and scaler are set and compatible with the expected feature count.
-            2. Decodes the input bytes to a UTF-8 string, removing any trailing newline.
-            3. Filters out empty strings.
-            4. Parses the JSON string to extract feature values specified in `self.features_to_keep`.
-            5. Encodes and scales the feature list using the provided encoder and scaler.
-            6. Assembles the processed data into a `cNetworkData` object, including a timestamp and flow count.
-            7. Returns the JSON representation of the `cNetworkData` object.
-        Args:
-            b (bytes): The input network flow as a JSON-encoded byte string.
-        Returns:
-            str or None: The JSON string of the processed network data package, or None if an error occurs.
-        Raises:
-            None: All exceptions are caught and logged internally.
-        """
-        if self.encoder is None or self.scaler is None:
-            print("Error: Encoder or scaler not set. Please add them before starting a new capture session.")
-            self.logger.error("Error: Encoder or scaler not set. Please add them before starting a new capture session.")
+        
+        if self.encoders is None or self.scaler is None:
+            self.logger.error("Encoder or scaler not set.")
             return None
+
         if self.scaler.n_features_in_ != len(self.features_to_keep):
-            print(f"Error: Scaler expects {self.scaler.n_features_in_} features, but {len(self.features_to_keep)} were provided.")
-            self.logger.error(f"Error: Scaler expects {self.scaler.n_features_in_} features, but {len(self.features_to_keep)} were provided.")
+            self.logger.error(
+                f"Scaler expects {self.scaler.n_features_in_} features, "
+                f"but {len(self.features_to_keep)} provided."
+            )
             return None
-        
-        # above just sanity checks
-        # 1. Drop newline and decode bytes to string
+
+        # 1. Decode bytes
         s = b.rstrip(b"\n").decode("utf-8", "replace")
-        
-        # 2. Filter out empty strings
         if not s:
             return None
-        # 3. Parse the JSON string and return the feature list
+
         try:
             js = json.loads(s)
-            SRC_IP = js["src_ip"]
-            DST_IP = js["dst_ip"]
-
-            flow_list = [js.get(feat, None) for feat in self.features_to_keep]
-
-            with self._lock:
-                flow_list_encoded = self.encode_flow(flow_list)
-                # print(f"Encoded flow list: {flow_list_encoded}")
-                flow_list_scaled = self.scaler.transform(np.array(flow_list_encoded))
-                # print(f"Scaled flow list: {flow_list_scaled[0].tolist()}")
-                #? assemble the cNetworkData object
-                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-                log = {'flow_count': self.flow_counter}
-                network_data_package = cNetworkData(EDGE_DEVICE_ID, timestamp, SRC_IP, DST_IP, flow_list_scaled[0].tolist(), log) #TODO replace 1 with edge device if from .env file
-                self.flow_counter += 1
-                return network_data_package.to_json()
-            
         except Exception as e:
-            print(f"[JSON ERROR] {e} :: {s[:200]}")
             self.logger.exception(f"[JSON ERROR] {e} :: {s[:200]}")
             return None
-    
-    def encode_flow(self, js):
-        encoded_list = []
 
+        # Safe extraction
+        SRC_IP = js.get("src_ip", "")
+        DST_IP = js.get("dst_ip", "")
+        SRC_PORT = js.get("src_port", 0)
+        DST_PORT = js.get("dst_port", 0)
+        PROTOCOL = js.get("protocol", "")
+
+        # Extract features
+        #flow_list = [js.get(feat) for feat in self.features_to_keep]
+
+        # Lock the whole critical block
         with self._lock:
-            for feat in self.features_to_keep:
-                value = js.get(feat, None)
+            try:
+                encoded = self.encode_flow(js)
 
-                # If this feature has its own encoder → encode it
-                if feat in self.encoder:
-                    enc = self.encoder[feat]
-                    try:
-                        encoded = enc.transform([[value]])[0][0]
-                    except ValueError:
-                        # Unknown category fallback
-                        encoded = -1
-                else:
-                    # Feature does NOT need encoding → keep raw
-                    encoded = value
+                # FIXED: scaler expects shape (1, n_features)
+                scaled = self.scaler.transform([encoded])[0].tolist()
 
-                encoded_list.append(encoded)
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
+                log = {"flow_count": self.flow_counter}
 
-        return encoded_list
+                pkg = cNetworkData(
+                    EDGE_DEVICE_ID,
+                    timestamp,
+                    SRC_IP,
+                    DST_IP,
+                    SRC_PORT,
+                    DST_PORT,
+                    PROTOCOL,   
+                    scaled,
+                    log
+                )
+
+                self.flow_counter += 1
+                return pkg.to_json()
+
+            except Exception as e:
+                self.logger.exception(f"[FLOW ERROR] {e} :: {[js.get(feat) for feat in self.features_to_keep]}")
+                return None
+    
+    def encode_flow(self, js_dict: dict):
+        encoded = []
+
+        # No lock here, outer code handles locking
+        for feat in self.features_to_keep:
+            value = js_dict.get(feat)
+
+            # If feature has an encoder:
+            if feat in self.encoders:
+                enc = self.encoders[feat]
+                try:
+                    value = enc.transform([[value]])[0][0]
+                except Exception:
+                    value = -1  # unknown category fallback
+
+            encoded.append(value)
+
+        return encoded
 
     async def create_tcp_server(self, host=TCP_HOST_IP, port=NETWORK_DATA_TCP_PORT):
         """
@@ -183,6 +184,18 @@ class NetworkProbe:
             error_msg = f"Failed to load encoders from {NETWORK_ENCODER}: {e}"
             self.logger.error(error_msg, exc_info=True)  
 
+    def load_network_scaler(self): 
+        """
+        Adding a min-max scaler for scaling the features.
+        """
+        try:
+            with open(NETWORK_SCALER, "rb") as f:
+                self.scaler = pickle.load(f)
+        except Exception as e:
+            error_msg = f"Failed to load encoders from {NETWORK_SCALER}: {e}"
+            print(error_msg)
+            self.logger.error(error_msg, exc_info=True)
+            return None
     # def load_network_encoder(self):
     #     """
     #     Adds a custom encoder for handling multiple features for label encoding.
@@ -267,24 +280,12 @@ class NetworkProbe:
     #         print(error_msg)
     #         self.logger.error(error_msg, exc_info=True)
 
-    def load_network_scaler(self): 
-        """
-        Adding a min-max scaler for scaling the features.
-        """
-        try:
-            with open(NETWORK_SCALER, "rb") as f:
-                self.scaler = pickle.load(f)
-        except Exception as e:
-            error_msg = f"Failed to load encoders from {NETWORK_SCALER}: {e}"
-            print(error_msg)
-            self.logger.error(error_msg, exc_info=True)
-            return None
     
-    def replace_features_to_keep(self, feature_list:list):
-        """
-        Replaces the features to keep with a new list.
-        """
-        self.features_to_keep = feature_list
+    # def replace_features_to_keep(self, feature_list:list):
+    #     """
+    #     Replaces the features to keep with a new list.
+    #     """
+    #     self.features_to_keep = feature_list
 
 
 
@@ -297,7 +298,7 @@ class SensorProbe:
         self.logger = get_logger("SensorProbe")
         self.encoder = None
         self.scaler = None
-        self.features_to_keep = DEFAULT_IMPORTANT_FEATURES
+        self.features_to_keep = SENSOR_FEATURE_LIST
         self.data_counter = 0
         self._lock = threading.Lock()
         self.detect_stream = self.sensor_stream.map(self._parse_sensor_data)
@@ -311,7 +312,7 @@ class SensorProbe:
         try:
             js = json.loads(s)
             sensor_data_list = list(js)
-            # print(f"[DEBUG] Parsed sensor data list: {sensor_data_list}")
+            print(f"[DEBUG] Parsed sensor data list: {sensor_data_list}")
             with self._lock:
                 sensor_data_scaled = self.scaler.transform(np.array(sensor_data_list).reshape(1, -1))
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")

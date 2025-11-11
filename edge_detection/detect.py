@@ -56,7 +56,8 @@ class cEdgeDetector:
         self.NetworkStream = NetworkStream
         self.SensorStream = SensorStream
         self.MQTTclient = MQTTClient
-        self.cNetworkAutoencoder = NetworkAutoEncoder().to(device=device)
+        self.cNetworkAutoencoder = NetworkAutoEncoder().to(device=device) 
+        self.NetworkCriterion = torch.nn.MSELoss(reduction='mean') 
         self.oNetworkScaler = None
         self.oNetworkBundle = NetworkBundle(
                                             type="bundle",
@@ -69,7 +70,7 @@ class cEdgeDetector:
                                             ]
                                         )
         
-        self.cSensorAutoencoder = SensorAutoEncoder().to(device=device)
+        self.cSensorAutoencoder = SensorAutoEncoder().to(device=device) 
         self.oSensorScaler = None
         self.oSensorBundle = SensorBundle(
                                         type="bundle",
@@ -169,116 +170,14 @@ class cEdgeDetector:
             preview = data_str[:80] + '...}' if len(data_str) > 80 else data_str
             nc = await nats.connect(NATS_SERVER)
             await nc.publish(subject, data)  # ensure data is bytes
-            # print(f"Published to '{subject}': {preview}")
+            print(f"Published to '{subject}': {preview}")
+            print("__________________________________________________")
             # print(f"Published to '{subject}': {data}")
             await nc.flush()
             await nc.close()
         except Exception as e:
             print(f"Error in publish_to_nats: {e}")
             self.logger.exception("Error in publish_to_nats: %s", e)
-    
-    # def getOriginalFlow(self, lDataArray):
-    #     import pickle
-    #     self.features_to_keep = ['application_category_name', 'application_confidence',
-    #         'application_is_guessed', 'application_name', 'bidirectional_ack_packets', 'bidirectional_mean_ps',
-    #         'bidirectional_min_piat_ms', 'bidirectional_min_ps', 'bidirectional_rst_packets', 'dst2src_bytes',
-    #         'dst2src_fin_packets', 'dst2src_min_piat_ms', 'dst2src_min_ps', 'dst2src_stddev_piat_ms',
-    #         'dst_oui', 'expiration_id', 'ip_version', 'requested_server_name', 'splt_ps',
-    #         'src2dst_ece_packets', 'src2dst_fin_packets', 'src2dst_max_ps', 'src2dst_mean_piat_ms',
-    #         'src2dst_mean_ps', 'src2dst_min_ps', 'src2dst_psh_packets', 'src2dst_rst_packets', 'src_oui',
-    #         'vlan_id']
-    #     with open("models_server/network_model/scaler.pkl", "rb") as f:
-    #         self.scaler = pickle.load(f)        
-    #         class MixedFeatureEncoder:
-    #             def __init__(self, encoders):
-    #                 self.encoders = encoders
-    #                 self.features_to_keep = ['application_category_name', 'application_confidence',
-    #                     'application_is_guessed', 'application_name', 'bidirectional_ack_packets', 'bidirectional_mean_ps',
-    #                     'bidirectional_min_piat_ms', 'bidirectional_min_ps', 'bidirectional_rst_packets', 'dst2src_bytes',
-    #                     'dst2src_fin_packets', 'dst2src_min_piat_ms', 'dst2src_min_ps', 'dst2src_stddev_piat_ms',
-    #                     'dst_oui', 'expiration_id', 'ip_version', 'requested_server_name', 'splt_ps',
-    #                     'src2dst_ece_packets', 'src2dst_fin_packets', 'src2dst_max_ps', 'src2dst_mean_piat_ms',
-    #                     'src2dst_mean_ps', 'src2dst_min_ps', 'src2dst_psh_packets', 'src2dst_rst_packets', 'src_oui',
-    #                     'vlan_id']
-
-    #             def transform(self, X):
-    #                 # X is shape (n_samples, n_features)
-    #                 transformed_rows = []
-    #                 for row in X:
-    #                     transformed = []
-    #                     for feat, val in zip(self.features_to_keep, row):
-    #                         if feat in self.encoders:
-    #                             # --- categorical feature ---
-    #                             le = self.encoders[feat]
-
-    #                             # Build mapping from label -> encoded index
-    #                             mapping = dict(zip(le.classes_, le.transform(le.classes_)))
-
-    #                             # If the encoder contains an '__unknown__' class, use its value
-    #                             if "__unknown__" in mapping:
-    #                                 unknown_val = mapping["__unknown__"]
-    #                             else:
-    #                                 print(f"Warning: No '__unknown__' class in encoder for feature '{feat}'. Using 0 as default.")
-    #                                 exit(-1)
-
-    #                             # Map safely
-    #                             encoded_val = mapping.get(val, unknown_val)
-
-    #                             # Convert numpy scalar to plain int if necessary
-    #                             if hasattr(encoded_val, "item"):
-    #                                 encoded_val = encoded_val.item()
-    #                             transformed.append(encoded_val)
-    #                         else:
-    #                             # --- numerical or other feature ---
-    #                             # Ensure it's a clean Python type (no numpy scalars)
-    #                             if hasattr(val, "item"):
-    #                                 val = val.item()
-    #                             transformed.append(val)
-    #                     transformed_rows.append(transformed)
-    #                 return transformed_rows    
-                
-    #             def inverse_transform(self, X_enc):
-    #                 # X_enc is shape (n_samples, n_features)
-    #                 decoded_rows = []
-    #                 for row in X_enc:
-    #                     decoded = []
-    #                     for feat, val in zip(self.features_to_keep, row):
-    #                         if feat in self.encoders:
-    #                             le = self.encoders[feat]
-
-    #                             # Safely inverse-transform if value is in range
-    #                             classes = list(le.classes_)
-    #                             if 0 <= val < len(classes):
-    #                                 original_val = classes[val]
-    #                             else:
-    #                                 # If it's out of range, return '__unknown__' explicitly
-    #                                 original_val = "__unknown__"
-
-    #                             # Convert numpy scalar to native Python type
-    #                             if hasattr(original_val, "item"):
-    #                                 original_val = original_val.item()
-    #                             decoded.append(original_val)
-    #                         else:
-    #                             # Pass numerical or non-encoded feature through unchanged
-    #                             if hasattr(val, "item"):
-    #                                 val = val.item()
-    #                             decoded.append(val)
-    #                     decoded_rows.append(decoded)
-    #                 return decoded_rows
-        
-    #     with open("models_server/network_model/encoders.pkl", "rb") as f:
-    #         encoders = pickle.load(f)
-    #         self.encoder = MixedFeatureEncoder(encoders)
-        
-    #     flow_list_reverse_scaled = self.scaler.inverse_transform(lDataArray)
-    #     # print(f"Original flow list: {flow_list_reverse_scaled.tolist()}")
-    #     # flow_list_original = self.encoder.inverse_transform(flow_list_scaled)
-    #     # print(f"Original flow list after inverse transform: {flow_list_original}\n\n")
-    #     # print(f"unscaled flow list shape: {np.array(flow_list_reverse_scaled).shape}")
-    #     flow_list_decoded = self.encoder.inverse_transform(
-    #         [[int(round(v)) for v in flow_list_reverse_scaled[0]]]
-    #     )
-    #     return flow_list_decoded
 
     def detect_network_anomaly(self, data_instance, fThresNetwork, bNetworkFeatures):
         """
@@ -293,7 +192,13 @@ class cEdgeDetector:
         try:
             # Convert JSON string back to dictionary
             data_dict = json.loads(data_instance)
-
+            
+            SCR_IP = data_dict["src_ip"]
+            DST_IP = data_dict["dst_ip"]
+            SRC_PORT = data_dict["src_port"]
+            DST_PORT = data_dict["dst_port"]
+            PROTOCOL = data_dict["protocol"]
+            
             self.NetworkBuffer.append(data_dict["features"])
             
             #    data_dict["src_ip"]
@@ -311,24 +216,33 @@ class cEdgeDetector:
             sSeverity = " "
             if len(lDataList) != 0:
                 self.NetworkBuffer.append(lDataList)
-                iResult, fRecError = self.cNetworkAutoencoder.inference(DataTensor, fThresNetwork)
+                recDataTensor = self.cNetworkAutoencoder(DataTensor)
+                iResult, fRecError = self.calculate_rec_error(DataTensor, recDataTensor, fThresNetwork)
+
+
                 sSeverity = self.calculate_severity(fRecError, fThresNetwork)
+                print(f"iResult: {iResult}, fRecError: {fRecError:.8f} of {data_dict['log']['flow_count']}-th")
+                print("__________________________________________________")
+            
+            if iResult == 1:
+                sAnomaly = "network_anomaly"
+
             if bNetworkFeatures:
                 network_buffer = self.NetworkBuffer.get_buffer()  # Retrieve buffer
                 features = network_buffer[-1] if network_buffer else []  # Safe last element access
             else: 
                 features = []
 
-            if iResult == 1:
-                if False:
-                    print(f"iResult: {iResult}, fRecError: {fRecError:.8f} of {data_dict['log']['flow_count']}-th flow: {self.getOriginalFlow(lDataArray)}")
-                sAnomaly = "network_anomaly"
-
             #print(iResult, fRecError)
             self.oNetworkBundle.set_objects(0, "flow_data", features)
             self.oNetworkBundle.set_objects(0, "label", sAnomaly)
             self.oNetworkBundle.set_objects(0, "value", fRecError)
             self.oNetworkBundle.set_objects(0, "severity", sSeverity)
+            self.oNetworkBundle.set_objects(0, "source_ip", SCR_IP)
+            self.oNetworkBundle.set_objects(0, "destination_ip", DST_IP)
+            self.oNetworkBundle.set_objects(0, "source_port", SRC_PORT)
+            self.oNetworkBundle.set_objects(0, "destination_port", DST_PORT)
+            self.oNetworkBundle.set_objects(0, "protocol", PROTOCOL)            
             # Debug print for the network bundle
             
         except Exception as e:
@@ -421,11 +335,25 @@ class cEdgeDetector:
             severity = "high"
         return severity
 
+    def calculate_rec_error(self, input_tensor, reconstructed_tensor, threshold):
+        loss = self.NetworkCriterion(input_tensor, reconstructed_tensor)
+        error = loss.item()
+
+        anomaly = 1 if error > threshold else 0
+        return anomaly, error
+    
+    
+    def inference(self, x, threshold=0.007855):
+        recError = self.reconstructionError(x)
+        if (recError > threshold):
+            return 1, recError
+        return 0, recError
        
     
     def load_sensor_state_dict(self):
         try:
             self.cSensorAutoencoder.load_state_dict(torch.load(SENSOR_MODEL, map_location=torch.device('cpu')))
+            self.cSensorAutoencoder.eval()
             return None
         except Exception as e:
             self.logger.exception(e)
@@ -440,6 +368,7 @@ class cEdgeDetector:
     def load_network_state_dict(self):
         try:
             self.cNetworkAutoencoder.load_state_dict(torch.load(NETWORK_MODEL, map_location=device))
+            self.cNetworkAutoencoder.eval()
             return None
         except Exception as e:
             self.logger.exception(e)

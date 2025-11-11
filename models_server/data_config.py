@@ -101,7 +101,7 @@ DEFAULT_SENSOR_MODEL = {
     "training_timestamp": "2024-10-14 09:07:06,361"
 }
 
-NETWORK_THRESHOLD = 0.005
+NETWORK_THRESHOLD = 0.1
 
 
 NETWORK_FEATURE_LIST = ['src_port',  'dst_port', 'protocol', 'bidirectional_duration_ms', 'bidirectional_packets', 

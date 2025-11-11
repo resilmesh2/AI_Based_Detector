@@ -12,6 +12,9 @@ class cNetworkData:
     timestamp: str
     src_ip: str
     dst_ip: str
+    src_port: int
+    dst_port: int
+    protocol: str
     features: List[float] = field(default_factory=list)
     log: Dict[str, Any] = field(default_factory=dict)
 
@@ -114,9 +117,9 @@ class NetworkAnomalies:
     value_type: str
     flow_id: str
     source_ip: str
-    source_port: str
+    source_port: int
     destination_ip: str
-    destination_port: str
+    destination_port: int
     protocol: str
     flow_data: List[float]
     label: str

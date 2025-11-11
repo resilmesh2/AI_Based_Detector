@@ -21,6 +21,7 @@ RUN pip install --no-cache-dir torch==2.6.0+cu118 torchvision==0.21.0+cu118 torc
 # Install remaining dependencies
 COPY requirements.txt /tmp/
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
+#RUN pip install --no-cache-dir "setuptools>=81"
 
 WORKDIR /app
 COPY . .

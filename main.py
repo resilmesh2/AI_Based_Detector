@@ -67,10 +67,10 @@ def main():
     # print("[DEBUG] Init/Setup of network and sensor probe...")
     logger.debug("Init/Setup of network and sensor probe...")
     network_probe = NetworkProbe(NetworkStream)
-    sensor_probe = SensorProbe(SensorStream)
     network_probe.load_network_encoder()
     network_probe.load_network_scaler()
-    network_probe.replace_features_to_keep(NETWORK_FEATURE_LIST.copy())
+    
+    sensor_probe = SensorProbe(SensorStream)
     sensor_probe.load_sensor_scaler()
 
     # -----------------------------
