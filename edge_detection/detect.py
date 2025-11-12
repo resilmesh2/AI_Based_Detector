@@ -115,8 +115,7 @@ class cEdgeDetector:
                     include_flow = False  # <-- set this dynamically as needed
                     if include_flow:
                         flow_data = oResultNetworkBundle.get_objects(0, "flow_data")
-                        # print(f"[{timestamp}] Label: {label} | Value: {value:.7f} | Severity: {severity} | Flow: {self.getOriginalFlow(np.array(flow_data).reshape(1, -1))}")
-                        self.logger.debug(f"Label: {label} | Value: {value:.7f} | Severity: {severity} | Flow: {self.getOriginalFlow(np.array(flow_data).reshape(1, -1))}")
+                        self.logger.debug(f"Label: {label} | Value: {value:.7f} | Severity: {severity} | Flow Data:{flow_data}")
                     else:
                         # print(f"[{timestamp}] Label: {label} | Value: {value:.7f} | Severity: {severity}")
                         self.logger.debug(f"Label: {label} | Value: {value:.7f} | Severity: {severity}")
@@ -170,8 +169,8 @@ class cEdgeDetector:
             preview = data_str[:80] + '...}' if len(data_str) > 80 else data_str
             nc = await nats.connect(NATS_SERVER)
             await nc.publish(subject, data)  # ensure data is bytes
-            print(f"Published to '{subject}': {preview}")
-            print("__________________________________________________")
+            #print(f"Published to '{subject}': {preview}")
+            #print("__________________________________________________")
             # print(f"Published to '{subject}': {data}")
             await nc.flush()
             await nc.close()
@@ -220,12 +219,13 @@ class cEdgeDetector:
                 iResult, fRecError = self.calculate_rec_error(DataTensor, recDataTensor, fThresNetwork)
 
 
-                sSeverity = self.calculate_severity(fRecError, fThresNetwork)
+              
                 print(f"iResult: {iResult}, fRecError: {fRecError:.8f} of {data_dict['log']['flow_count']}-th")
                 print("__________________________________________________")
             
             if iResult == 1:
                 sAnomaly = "network_anomaly"
+                sSeverity = self.calculate_severity(fRecError, fThresNetwork)
 
             if bNetworkFeatures:
                 network_buffer = self.NetworkBuffer.get_buffer()  # Retrieve buffer
@@ -274,18 +274,20 @@ class cEdgeDetector:
                 # DataTensor = torch.tensor(ScaledDataArray, dtype=torch.float32, device=device)
                 DataTensor = torch.tensor(lDataArray, dtype=torch.float32, device=device)
                 self.SensorBuffer.append(lDataList)
-                _, fRecError = self.cSensorAutoencoder.inference(DataTensor, fThresSensor)
-                
+
+                recDataTensor = self.cSensorAutoencoder(DataTensor)
+                _, fRecError = self.calculate_rec_error(DataTensor, recDataTensor, fThresSensor)
                 self.dSensorRecErr.append(fRecError)
 
                 iResult, avgRecError = self.is_anomaly(fThresSensor)
 
-                sSeverity = self.calculate_severity(avgRecError, fThresSensor)
+
                 
-                # print(f"iResult: {iResult}, fRecError: {fRecError:.8f} of {data_dict['log']['data_count']}-th data: {lDataList}")
+                #print(f"iResult: {iResult}, fRecError: {fRecError:.8f} of {data_dict['log']['data_count']}-th data: {lDataList}")
 
                 if iResult == 1:
                     sAnomaly = "sensor_anomaly"
+                    sSeverity = self.calculate_severity(avgRecError, fThresSensor)
             else:
                 iResult = -1
                 sAnomaly = 'heartbeat'
@@ -335,20 +337,13 @@ class cEdgeDetector:
             severity = "high"
         return severity
 
-    def calculate_rec_error(self, input_tensor, reconstructed_tensor, threshold):
-        loss = self.NetworkCriterion(input_tensor, reconstructed_tensor)
-        error = loss.item()
-
-        anomaly = 1 if error > threshold else 0
-        return anomaly, error
-    
-    
-    def inference(self, x, threshold=0.007855):
-        recError = self.reconstructionError(x)
-        if (recError > threshold):
-            return 1, recError
-        return 0, recError
-       
+    def calculate_rec_error(self, x, x_hat, threshold):
+        with torch.no_grad():
+            # mean over features only
+            mse = torch.mean((x_hat - x) ** 2, dim=1)
+            val = float(mse.item())
+            anomaly = int(val > threshold)
+            return anomaly, val
     
     def load_sensor_state_dict(self):
         try:

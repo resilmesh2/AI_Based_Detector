@@ -2,101 +2,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pandas as pd
+from .data_config import SENSOR_FEATURE_LIST, NETWORK_FEATURE_LIST
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-############################################## CONSTANT DEFINITIONS ##################################################
-TRAIN = False
-FILENAME_MODEL = "AE_model_TRAIN_True_ADV_TRAIN_True_EPS_TRAIN_0.05_ALPHA_TRAIN_0.005_NUM_ITER_TRAIN_10_GEN_ADV_SAMPLES_True_EPS_SAMPLES_1000_ALPHA_SAMPLES_0_NUM_ITER_SAMPLES_100000_NUM_FEAT_USED_51.pth"
-FILENAME_L2 = 'l2_norm_TRAIN_True_ADV_TRAIN_False_GEN_ADV_SAMPLES_True_EPS_SAMPLES_1000_ALPHA_SAMPLES_0_NUM_ITER_SAMPLES_100000_NUM_FEAT_USED_51 (2).npy'
-ADV_TRAIN = True
-EPS_TRAIN = 0.5
-ALPHA_TRAIN = 0.05
-NUM_ITER_TRAIN = 10
-LAMBDA_TRAIN_LOSS = 0.1 #seems to be the best option 
-FEATURE_WEIGHING_REC = False
-MOVING_AVG_REC_ERROR = 14
-
-GEN_ADV_SAMPLES = False
-EPS_SAMPLES = 1000
-ALPHA_SAMPLES = 0   #if 0, use dynamic alpha ()
-NUM_ITER_SAMPLES = 100000
-
-NUM_FEATURES_USED = 51
-
-PLOT_REC_ERROR = True
-PLOT_L2_NORM = True
-
-class AutoEncoder(nn.Module):
-    def __init__(self):
-        super(AutoEncoder, self).__init__()
-        
-        # Encoder layers
-        self.encoder = nn.Sequential(
-            nn.Linear(51, 51), 
-            nn.Tanh(),
-            nn.Linear(51, 51),
-            nn.Tanh(),
-            nn.Linear(51, 51),
-            nn.Tanh(),
-            nn.Linear(51, 18)  # Encoding layer with output size 18
-        )
-        
-        # Decoder layers
-        self.decoder = nn.Sequential(
-            nn.Linear(18, 51),
-            nn.Tanh(),
-            nn.Linear(51, 51),
-            nn.Tanh(),
-            nn.Linear(51, 51),
-            nn.Tanh(),
-            nn.Linear(51, 51)
-        )
-
-    def latent(self, x):
-        x = self.encoder(x)
-        return x
-
-    def forward(self, x):
-        x = self.encoder(x)
-        x = self.decoder(x)
-        return x
-    
-    def reconstructionError(self, x):
-        if FEATURE_WEIGHING_REC:
-            with torch.no_grad():
-                x_tensor = torch.tensor(x, dtype=torch.float32)  # Convert to PyTorch tensor
-                x_tensor = x_tensor.unsqueeze(0)  # Add batch dimension
-                # Forward pass
-                output = self.forward(x_tensor)
-                # Calculate loss (MSE)
-                J = F.mse_loss(output, x_tensor).item() / 51
-                partial_rec_error = 0.0
-                for i in range(len(x)):
-                    partial_rec_error += F.mse_loss(output.squeeze(0)[i], x_tensor.squeeze(0)[i]).item() / (0.0001 + J)
-                #   print("Rec_error: ", partial_rec_error)
-                return partial_rec_error
-        else:  
-            with torch.no_grad():
-                x_tensor = torch.tensor(x, dtype=torch.float32, device=device)  # Convert to PyTorch tensor, to devic?
-                x_tensor = x_tensor.unsqueeze(0)  # Add batch dimension
-                # Forward pass
-                output = self.forward(x_tensor)
-                # Calculate loss (MSE)
-                loss = F.mse_loss(output, x_tensor)
-                return loss.item()
-            
-    
-    def inference(self, x, threshold=70.0):
-        recError = self.reconstructionError(x)
-        if (recError > threshold):
-            return 1, recError
-        return 0, recError
-
 
 class NetworkAutoEncoder(nn.Module):
-    def __init__(self):
-        neuron_count = 15 # this should be the number of features in FEATURE_LIST
+    def __init__(self, neuron_count=len(NETWORK_FEATURE_LIST)):
         super(NetworkAutoEncoder, self).__init__()
         # Encoder layers
         self.encoder = nn.Sequential(
@@ -212,7 +124,7 @@ class NetworkAutoEncoder(nn.Module):
 neuron_count = 43
 
 class SensorAutoEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, neuron_count=len(SENSOR_FEATURE_LIST)):
         super(SensorAutoEncoder, self).__init__()
         
   # Encoder layers

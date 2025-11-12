@@ -81,10 +81,7 @@ class NetworkProbe:
         # Lock the whole critical block
         with self._lock:
             try:
-                encoded = self.encode_flow(js)
-
-                # FIXED: scaler expects shape (1, n_features)
-                scaled = self.scaler.transform([encoded])[0].tolist()
+                encoded_scaled = self.encode_scale_flow(js).flatten().tolist()
 
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
                 log = {"flow_count": self.flow_counter}
@@ -97,7 +94,7 @@ class NetworkProbe:
                     SRC_PORT,
                     DST_PORT,
                     PROTOCOL,   
-                    scaled,
+                    encoded_scaled,
                     log
                 )
 
@@ -108,8 +105,8 @@ class NetworkProbe:
                 self.logger.exception(f"[FLOW ERROR] {e} :: {[js.get(feat) for feat in self.features_to_keep]}")
                 return None
     
-    def encode_flow(self, js_dict: dict):
-        encoded = []
+    def encode_scale_flow(self, js_dict: dict):
+        encoded = {}
 
         # No lock here, outer code handles locking
         for feat in self.features_to_keep:
@@ -118,14 +115,17 @@ class NetworkProbe:
             # If feature has an encoder:
             if feat in self.encoders:
                 enc = self.encoders[feat]
-                try:
-                    value = enc.transform([[value]])[0][0]
-                except Exception:
-                    value = -1  # unknown category fallback
+            #    This should now be safe
+                value = enc.transform([[value]])[0][0]
 
-            encoded.append(value)
+            encoded[feat] = value
 
-        return encoded
+        df_encoded = pd.DataFrame([encoded])
+
+        scaled_encoded = self.scaler.transform(df_encoded)
+        #print(f"[DEBUG] Encoded input: {encoded}")
+        #print(f"[DEBUG] Scaled input: {scaled_encoded}")
+        return scaled_encoded 
 
     async def create_tcp_server(self, host=TCP_HOST_IP, port=NETWORK_DATA_TCP_PORT):
         """
@@ -309,22 +309,51 @@ class SensorProbe:
         s = b.rstrip(b"\n").decode("utf-8", "replace")
         if not s:
             return None
+
         try:
             js = json.loads(s)
-            sensor_data_list = list(js)
-            print(f"[DEBUG] Parsed sensor data list: {sensor_data_list}")
+            # js should now be a dict (key: feature_name, value: numeric)
+            print("[DEBUG] Received JSON:", js)
+
+            # ✅ Extract only features in SENSOR_FEATURE_LIST (and in the correct order)
+            features = self._extract_features(js)
+            print(f"[DEBUG] Extracted features ({len(features)}): {features}")
+
+            # Continue with scaling and packaging
             with self._lock:
-                sensor_data_scaled = self.scaler.transform(np.array(sensor_data_list).reshape(1, -1))
+                sensor_data_scaled = self.scaler.transform(np.array(features).reshape(1, -1))
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
                 log = {'data_count': self.data_counter}
-                # sensor_data_package = cSensorData(EDGE_DEVICE_ID, timestamp, sensor_data_list, log) 
-                sensor_data_package = cSensorData(EDGE_DEVICE_ID, timestamp, sensor_data_scaled[0].tolist(), log) 
+
+                sensor_data_package = cSensorData(
+                    EDGE_DEVICE_ID,
+                    timestamp,
+                    sensor_data_scaled[0].tolist(),
+                    log
+                )
                 self.data_counter += 1
                 return sensor_data_package.to_json()
+
         except Exception as e:
             print(f"[JSON ERROR] {e} :: {s[:200]}")
             self.logger.exception(f"[JSON ERROR] {e} :: {s[:200]}")
             return None
+
+
+    def _extract_features(self, js: dict):
+        """
+        Select only the sensor features defined in SENSOR_FEATURE_LIST
+        and return their values in the same order.
+        Missing features are replaced with 0.0 (or np.nan if preferred).
+        """
+        features = []
+        for key in SENSOR_FEATURE_LIST:
+            value = js.get(key, 0.0)  # or np.nan if you want to mark missing values
+            try:
+                features.append(float(value))
+            except (ValueError, TypeError):
+                features.append(0.0)  # fallback if value is non-numeric
+        return features
 
     async def create_tcp_server(self, host=TCP_HOST_IP, port=SENSOR_DATA_TCP_PORT):
         async def _handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):

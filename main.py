@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from data_generation.generate import GenEdgeData
 from edge_detection.detect import cEdgeDetector
 from network_capturing.probe import NetworkProbe, SensorProbe
-from models_server.data_config import NETWORK_FEATURE_LIST, NETWORK_THRESHOLD, SENSOR_THRESHOLD
+from models_server.data_config import NETWORK_THRESHOLD, SENSOR_THRESHOLD
 from logging_setup import get_logger
 
 from sklearn.exceptions import InconsistentVersionWarning
