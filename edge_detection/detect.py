@@ -47,8 +47,6 @@ NATS_SERVER      = os.getenv("NATS_SERVER")
 NETWORK_SUBJECT  = os.getenv("NETWORK_SUBJECT")
 SENSOR_SUBJECT   = os.getenv("SENSOR_SUBJECT")
 
-#from confluent_kafka import Producer
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 class cEdgeDetector:
     def __init__(self, NetworkStream: Stream, SensorStream: Stream, MQTTClient: Client):
@@ -56,7 +54,8 @@ class cEdgeDetector:
         self.NetworkStream = NetworkStream
         self.SensorStream = SensorStream
         self.MQTTclient = MQTTClient
-        self.cNetworkAutoencoder = NetworkAutoEncoder().to(device=device) 
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.cNetworkAutoencoder = NetworkAutoEncoder().to(device=self.device) 
         self.NetworkCriterion = torch.nn.MSELoss(reduction='mean') 
         self.oNetworkScaler = None
         self.oNetworkBundle = NetworkBundle(
@@ -70,7 +69,7 @@ class cEdgeDetector:
                                             ]
                                         )
         
-        self.cSensorAutoencoder = SensorAutoEncoder().to(device=device) 
+        self.cSensorAutoencoder = SensorAutoEncoder().to(device=self.device) 
         self.oSensorScaler = None
         self.oSensorBundle = SensorBundle(
                                         type="bundle",
@@ -198,7 +197,6 @@ class cEdgeDetector:
             DST_PORT = data_dict["dst_port"]
             PROTOCOL = data_dict["protocol"]
             
-            self.NetworkBuffer.append(data_dict["features"])
             
             #    data_dict["src_ip"]
             #     data_dict["dst_ip"]  
@@ -208,7 +206,7 @@ class cEdgeDetector:
             lDataArray= np.array(lDataList).reshape(1, -1)
 
             #ScaledDataArray  = self.oNetworkScaler.transform(lDataArray)
-            DataTensor = torch.tensor(lDataArray, dtype=torch.float32, device=device)
+            DataTensor = torch.tensor(lDataArray, dtype=torch.float32, device=self.device)
             iResult = 0
             sAnomaly = "normal"
             fRecError = None
@@ -218,10 +216,8 @@ class cEdgeDetector:
                 recDataTensor = self.cNetworkAutoencoder(DataTensor)
                 iResult, fRecError = self.calculate_rec_error(DataTensor, recDataTensor, fThresNetwork)
 
-
-              
-                print(f"iResult: {iResult}, fRecError: {fRecError:.8f} of {data_dict['log']['flow_count']}-th")
-                print("__________________________________________________")
+                #print(f"iResult: {iResult}, fRecError: {fRecError:.8f} of {data_dict['log']['flow_count']}-th")
+                #print("__________________________________________________")
             
             if iResult == 1:
                 sAnomaly = "network_anomaly"
@@ -249,9 +245,9 @@ class cEdgeDetector:
             print(f"An error occurred in detect_network_anomaly: {e}")
             # Log the exception including type, script name, and line number
             self.logger.exception(e)
-        oNetworkBundle = self.oNetworkBundle
     
-        return oNetworkBundle
+    
+        return self.oNetworkBundle
     
     def detect_sensor_anomaly(self, data_instance, fThresSensor, bSensorFeatures):
         try:
@@ -362,7 +358,7 @@ class cEdgeDetector:
 
     def load_network_state_dict(self):
         try:
-            self.cNetworkAutoencoder.load_state_dict(torch.load(NETWORK_MODEL, map_location=device))
+            self.cNetworkAutoencoder.load_state_dict(torch.load(NETWORK_MODEL, map_location=self.device))
             self.cNetworkAutoencoder.eval()
             return None
         except Exception as e:

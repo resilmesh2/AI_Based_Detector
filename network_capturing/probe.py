@@ -76,7 +76,8 @@ class NetworkProbe:
         PROTOCOL = js.get("protocol", "")
 
         # Extract features
-        #flow_list = [js.get(feat) for feat in self.features_to_keep]
+        #low_list = [js.get(feat) for feat in self.features_to_keep]
+        #print(js)
 
         # Lock the whole critical block
         with self._lock:
@@ -97,7 +98,7 @@ class NetworkProbe:
                     encoded_scaled,
                     log
                 )
-
+                #print( pkg.to_json())
                 self.flow_counter += 1
                 return pkg.to_json()
 

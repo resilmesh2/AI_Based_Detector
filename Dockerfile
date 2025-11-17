@@ -12,8 +12,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip, setuptools, wheel
-RUN pip install --upgrade pip setuptools wheel
-
+RUN pip install --upgrade pip wheel
+RUN pip install --no-cache-dir "setuptools<81"
 # Install PyTorch (CUDA 11.8 versions)
 RUN pip install --no-cache-dir torch==2.6.0+cu118 torchvision==0.21.0+cu118 torchaudio==2.6.0+cu118 \
     --extra-index-url https://download.pytorch.org/whl/cu118
@@ -21,7 +21,7 @@ RUN pip install --no-cache-dir torch==2.6.0+cu118 torchvision==0.21.0+cu118 torc
 # Install remaining dependencies
 COPY requirements.txt /tmp/
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
-#RUN pip install --no-cache-dir "setuptools>=81"
+
 
 WORKDIR /app
 COPY . .

@@ -104,8 +104,8 @@ DEFAULT_SENSOR_MODEL = {
 NETWORK_THRESHOLD = 0.1
 
 
-NETWORK_FEATURE_LIST = ['src_port',  'dst_port', 'protocol', 'bidirectional_duration_ms', 'bidirectional_packets', 
-                  'dst2src_first_seen_ms', 'bidirectional_min_ps', 'bidirectional_mean_ps', 
+NETWORK_FEATURE_LIST = ['protocol', 'bidirectional_duration_ms', 'bidirectional_packets', 
+                    'bidirectional_min_ps', 'bidirectional_mean_ps', 
                   'bidirectional_stddev_ps', 'dst2src_min_ps', 'dst2src_mean_ps', 'dst2src_max_ps', 
                   'bidirectional_mean_piat_ms', 'splt_ps', 'application_name']
 
@@ -141,7 +141,7 @@ DEFAULT_NETWORK_ANOMALY = {
     "destination_ip": "192.168.0.2",
     "destination_port": "80",
     "protocol": "TCP", 
-    "flow_data": [0, 0, 1, 2, 5, 1, 1, 1, 1, 1, 0.0, 0.0, 55553.0, 63191.0, 0.0, 0.0],
+    "flow_data": [1, 2, 5, 1, 1, 1, 1, 0.0, 0.0, 55553.0, 63191.0, 0.0, 0.0],
     "label": "network_anomaly",
     "severity": "high"
 }

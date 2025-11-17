@@ -1,0 +1,39 @@
+lSelectColumns = [ 'protocol', 'bidirectional_duration_ms', 'bidirectional_packets', 'bidirectional_min_ps', 'bidirectional_mean_ps', 
+                  'bidirectional_stddev_ps', 'dst2src_min_ps', 'dst2src_mean_ps', 'dst2src_max_ps', 
+                  'bidirectional_mean_piat_ms', 'splt_ps', 'application_name']
+				  
+				  
+				  class AutoEncoder(nn.Module):
+    def __init__(self):
+        super(AutoEncoder, self).__init__()
+        
+        # Encoder layers
+        self.encoder = nn.Sequential(
+            nn.Linear(neuron_count, neuron_count), 
+            nn.Tanh(),
+            nn.Linear(neuron_count, neuron_count), 
+            nn.Tanh(),
+            nn.Linear(neuron_count, neuron_count),
+            nn.Tanh(),
+#             nn.Linear(neuron_count, neuron_count),
+#             nn.Tanh(),
+#             nn.Linear(neuron_count, neuron_count),
+#             nn.Tanh(),
+            nn.Linear(neuron_count, int(neuron_count / 2))  
+        )
+        
+        # Decoder layers
+        self.decoder = nn.Sequential(
+            nn.Linear(int(neuron_count / 2), neuron_count),
+            nn.Tanh(),
+            # nn.Linear(neuron_count, neuron_count), 
+            # nn.Tanh(),
+            # nn.Linear(neuron_count, neuron_count),
+            # nn.Tanh(),
+            nn.Linear(neuron_count, neuron_count),
+            nn.Tanh(),
+            nn.Linear(neuron_count, neuron_count),
+            nn.Tanh(),
+            nn.Linear(neuron_count, neuron_count),
+
+        )
