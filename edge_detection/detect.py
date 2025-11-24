@@ -213,11 +213,13 @@ class cEdgeDetector:
             sSeverity = " "
             if len(lDataList) != 0:
                 self.NetworkBuffer.append(lDataList)
-                recDataTensor = self.cNetworkAutoencoder(DataTensor)
+                with torch.no_grad():
+                    recDataTensor = self.cNetworkAutoencoder(DataTensor)
+                
                 iResult, fRecError = self.calculate_rec_error(DataTensor, recDataTensor, fThresNetwork)
-
-                #print(f"iResult: {iResult}, fRecError: {fRecError:.8f} of {data_dict['log']['flow_count']}-th")
-                #print("__________________________________________________")
+                # print("__________________________________________________")
+                # print(f"iResult: {iResult}, fRecError: {fRecError:.8f} of {data_dict['log']['flow_count']}-th")
+                # print("__________________________________________________")
             
             if iResult == 1:
                 sAnomaly = "network_anomaly"
@@ -268,10 +270,10 @@ class cEdgeDetector:
                 # Apply the scaler to the list
                 # ScaledDataArray  = self.oSensorScaler.transform(lDataArray)
                 # DataTensor = torch.tensor(ScaledDataArray, dtype=torch.float32, device=device)
-                DataTensor = torch.tensor(lDataArray, dtype=torch.float32, device=device)
+                DataTensor = torch.tensor(lDataArray, dtype=torch.float32, device=self.device)
                 self.SensorBuffer.append(lDataList)
-
-                recDataTensor = self.cSensorAutoencoder(DataTensor)
+                with torch.no_grad():
+                    recDataTensor = self.cSensorAutoencoder(DataTensor)
                 _, fRecError = self.calculate_rec_error(DataTensor, recDataTensor, fThresSensor)
                 self.dSensorRecErr.append(fRecError)
 

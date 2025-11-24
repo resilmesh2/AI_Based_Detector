@@ -1,3 +1,0 @@
-nats-py==2.11.0 
-nfstream==6.5.3 
-pandas==2.3.1 

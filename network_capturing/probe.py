@@ -56,6 +56,10 @@ class NetworkProbe:
                 f"but {len(self.features_to_keep)} provided."
             )
             return None
+        
+        if set(self.scaler.feature_names_in_) != set(self.features_to_keep):
+            self.logger.error("Feature set mismatch!")
+            return None
 
         # 1. Decode bytes
         s = b.rstrip(b"\n").decode("utf-8", "replace")
@@ -124,8 +128,10 @@ class NetworkProbe:
         df_encoded = pd.DataFrame([encoded])
 
         scaled_encoded = self.scaler.transform(df_encoded)
-        #print(f"[DEBUG] Encoded input: {encoded}")
-        #print(f"[DEBUG] Scaled input: {scaled_encoded}")
+        # print("------------------------------")
+        # print(f"[DEBUG] Encoded input: {encoded}")
+        # print(f"[DEBUG] Scaled input: {scaled_encoded}")
+        # print("------------------------------")
         return scaled_encoded 
 
     async def create_tcp_server(self, host=TCP_HOST_IP, port=NETWORK_DATA_TCP_PORT):
@@ -197,96 +203,8 @@ class NetworkProbe:
             print(error_msg)
             self.logger.error(error_msg, exc_info=True)
             return None
-    # def load_network_encoder(self):
-    #     """
-    #     Adds a custom encoder for handling multiple features for label encoding.
-    #     """
-    #     helper = self
-    #     class MixedFeatureEncoder:
-    #         def __init__(self, encoders):
-    #             self.encoders = encoders
 
-    #         def transform(self, X):
-    #             # X is shape (n_samples, n_features)
-    #             transformed_rows = []
-    #             for row in X:
-    #                 transformed = []
-    #                 for feat, val in zip(helper.features_to_keep, row):
-    #                     if feat in self.encoders:
-    #                         # --- categorical feature ---
-    #                         le = self.encoders[feat]
 
-    #                         # Build mapping from label -> encoded index
-    #                         mapping = dict(zip(le.classes_, le.transform(le.classes_)))
-
-    #                         # If the encoder contains an '__unknown__' class, use its value
-    #                         if "__unknown__" in mapping:
-    #                             unknown_val = mapping["__unknown__"]
-    #                         else:
-    #                             print(f"Warning: No '__unknown__' class in encoder for feature '{feat}'. Using 0 as default.")
-    #                             exit(-1)
-
-    #                         # Map safely
-    #                         encoded_val = mapping.get(val, unknown_val)
-
-    #                         # Convert numpy scalar to plain int if necessary
-    #                         if hasattr(encoded_val, "item"):
-    #                             encoded_val = encoded_val.item()
-    #                         transformed.append(encoded_val)
-    #                     else:
-    #                         # --- numerical or other feature ---
-    #                         # Ensure it's a clean Python type (no numpy scalars)
-    #                         if hasattr(val, "item"):
-    #                             val = val.item()
-    #                         transformed.append(val)
-    #                 transformed_rows.append(transformed)
-    #             return transformed_rows    
-            
-    #         def inverse_transform(self, X_enc):
-    #             # X_enc is shape (n_samples, n_features)
-    #             decoded_rows = []
-    #             for row in X_enc:
-    #                 decoded = []
-    #                 for feat, val in zip(helper.features_to_keep, row):
-    #                     if feat in self.encoders:
-    #                         le = self.encoders[feat]
-
-    #                         # Safely inverse-transform if value is in range
-    #                         classes = list(le.classes_)
-    #                         if 0 <= val < len(classes):
-    #                             original_val = classes[val]
-    #                         else:
-    #                             # If it's out of range, return '__unknown__' explicitly
-    #                             original_val = "__unknown__"
-
-    #                         # Convert numpy scalar to native Python type
-    #                         if hasattr(original_val, "item"):
-    #                             original_val = original_val.item()
-    #                         decoded.append(original_val)
-    #                     else:
-    #                         # Pass numerical or non-encoded feature through unchanged
-    #                         if hasattr(val, "item"):
-    #                             val = val.item()
-    #                         decoded.append(val)
-    #                 decoded_rows.append(decoded)
-    #             return decoded_rows
-        
-    #     try:
-    #         with open(NETWORK_ENCODER, "rb") as f:
-    #             encoders = pickle.load(f)
-    #             self.encoder = MixedFeatureEncoder(encoders)
-    #             return None
-    #     except Exception as e:
-    #         error_msg = f"Failed to load encoders from {NETWORK_ENCODER}: {e}"
-    #         print(error_msg)
-    #         self.logger.error(error_msg, exc_info=True)
-
-    
-    # def replace_features_to_keep(self, feature_list:list):
-    #     """
-    #     Replaces the features to keep with a new list.
-    #     """
-    #     self.features_to_keep = feature_list
 
 
 
@@ -312,19 +230,20 @@ class SensorProbe:
             return None
 
         try:
-            js = json.loads(s)
-            # js should now be a dict (key: feature_name, value: numeric)
-            print("[DEBUG] Received JSON:", js)
+            js_dict = json.loads(s)
+            # --- KEY VALIDATION (only enforce required keys) -------------------------
+            incoming_keys = js_dict.keys()
 
-            # ✅ Extract only features in SENSOR_FEATURE_LIST (and in the correct order)
-            features = self._extract_features(js)
-            print(f"[DEBUG] Extracted features ({len(features)}): {features}")
+            missing = [k for k in SENSOR_FEATURE_LIST if k not in incoming_keys]
 
-            # Continue with scaling and packaging
+            if missing:
+                raise KeyError(f"Missing required sensor features: {missing}")
+            
             with self._lock:
-                sensor_data_scaled = self.scaler.transform(np.array(features).reshape(1, -1))
+                sensor_data_scaled = self.scale_data(js_dict)
+        
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S.%f")
-                log = {'data_count': self.data_counter}
+                log = {'dat[SENSOR_FEATURE_LIST]a_count': self.data_counter}
 
                 sensor_data_package = cSensorData(
                     EDGE_DEVICE_ID,
@@ -339,22 +258,28 @@ class SensorProbe:
             print(f"[JSON ERROR] {e} :: {s[:200]}")
             self.logger.exception(f"[JSON ERROR] {e} :: {s[:200]}")
             return None
+    
+    def scale_data(self, js_dict: dict):
+        js_df = pd.DataFrame([js_dict])[SENSOR_FEATURE_LIST]
 
+        scaled_array = self.scaler.transform(js_df)
 
-    def _extract_features(self, js: dict):
-        """
-        Select only the sensor features defined in SENSOR_FEATURE_LIST
-        and return their values in the same order.
-        Missing features are replaced with 0.0 (or np.nan if preferred).
-        """
-        features = []
-        for key in SENSOR_FEATURE_LIST:
-            value = js.get(key, 0.0)  # or np.nan if you want to mark missing values
-            try:
-                features.append(float(value))
-            except (ValueError, TypeError):
-                features.append(0.0)  # fallback if value is non-numeric
-        return features
+        return scaled_array
+    
+    # def _extract_features(self, js: dict):
+    #     """
+    #     Select only the sensor features defined in SENSOR_FEATURE_LIST
+    #     and return their values in the same order.
+    #     Missing features are replaced with 0.0 (or np.nan if preferred).
+    #     """
+    #     features = []
+    #     for key in SENSOR_FEATURE_LIST:
+    #         value = js.get(key, 0.0)  # or np.nan if you want to mark missing values
+    #         try:
+    #             features.append(float(value))
+    #         except (ValueError, TypeError):
+    #             features.append(0.0)  # fallback if value is non-numeric
+    #     return features
 
     async def create_tcp_server(self, host=TCP_HOST_IP, port=SENSOR_DATA_TCP_PORT):
         async def _handle_client(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):

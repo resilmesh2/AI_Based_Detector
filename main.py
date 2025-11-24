@@ -81,7 +81,7 @@ def main():
     oEdgeDetctor = cEdgeDetector(NetworkStream, SensorStream, oMQQTClient)
     # Load your ML models/scalers
     oEdgeDetctor.load_sensor_state_dict()
-    # oEdgeDetctor.load_sensor_scaler()
+
     oEdgeDetctor.load_network_state_dict()
     # Further setup of streams
     oEdgeDetctor.setup_network_stream(network_probe, fNetworkThreshold, bSendNetworkFeatures)
