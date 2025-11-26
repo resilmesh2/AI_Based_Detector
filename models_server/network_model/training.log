@@ -1,0 +1,16 @@
+2025-11-17 10:47:20,622:INFO:Epoch [1/80], Train Loss: 2.665677
+2025-11-17 10:48:03,067:INFO:Epoch [2/80], Train Loss: 0.189576
+2025-11-17 10:48:45,752:INFO:Epoch [3/80], Train Loss: 0.140666
+2025-11-17 10:49:28,596:INFO:Epoch [4/80], Train Loss: 0.125879
+2025-11-17 10:50:10,939:INFO:Epoch [5/80], Train Loss: 0.113912
+2025-11-17 10:50:51,726:INFO:Epoch [6/80], Train Loss: 0.103512
+2025-11-17 10:51:34,321:INFO:Epoch [7/80], Train Loss: 0.100003
+2025-11-17 10:52:15,725:INFO:Epoch [8/80], Train Loss: 0.095114
+2025-11-17 10:52:56,869:INFO:Epoch [9/80], Train Loss: 0.094141
+2025-11-17 10:53:38,478:INFO:Epoch [10/80], Train Loss: 0.087188
+2025-11-17 10:54:20,730:INFO:Epoch [11/80], Train Loss: 0.087160
+2025-11-17 10:55:03,019:INFO:Epoch [12/80], Train Loss: 0.085750
+2025-11-17 10:55:46,312:INFO:Epoch [13/80], Train Loss: 0.085145
+2025-11-17 10:56:29,611:INFO:Epoch [14/80], Train Loss: 0.085270
+2025-11-17 10:57:12,130:INFO:Epoch [15/80], Train Loss: 0.085177
+2025-11-17 10:57:12,135:INFO:Checkpoint saved at /home/serwas/Documents/ResilMesh/WP4/Alias_Robotics/models/20251117_104617/trained_model.pth
