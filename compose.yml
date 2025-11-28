@@ -1,0 +1,15 @@
+services:
+  ai-ad:
+    build:
+      context: .
+    container_name: resilmesh_td_ai-ad
+    restart: on-failure
+    ports:
+      - "9100:9100" # netwwork data TCP port
+      - "9005:9005" # sensor data TCP port
+    networks:
+      - resilmesh_network
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - resilmesh_ap_nats
