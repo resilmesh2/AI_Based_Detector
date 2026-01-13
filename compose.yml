@@ -1,8 +1,8 @@
 services:
-  ai-ad:
+  resilmesh_tap_ai-ad:
     build:
       context: .
-    container_name: resilmesh_td_ai-ad
+    container_name: resilmesh_tap_ai-ad
     restart: on-failure
     ports:
       - "9100:9100" # netwwork data TCP port

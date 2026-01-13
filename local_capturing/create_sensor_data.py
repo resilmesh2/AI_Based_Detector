@@ -6,8 +6,8 @@ Requirements:
   pip install pandas
 
 Usage examples:
-  python sensor_sender.py --csv data/BATADAL_testdataset_copy.csv --container ai-ad --port 9001
-  CSV_PATH=./data/BATADAL_testdataset_copy.csv CONTAINER_NAME=ai-ad DEST_PORT=9001 python sensor_sender.py
+  python sensor_sender.py --csv data/BATADAL_testdataset_copy.csv --container resilmesh_tap_ai-ad --port 9001
+  CSV_PATH=./data/BATADAL_testdataset_copy.csv CONTAINER_NAME=resilmesh_tap_ai-ad DEST_PORT=9001 python sensor_sender.py
 """
 
 from __future__ import annotations
@@ -66,7 +66,7 @@ def main():
     # --- config via env ---
     csv_path = env_str("CSV_PATH", "data/BATADAL_testdataset_copy.csv")
     dest_host = env_str("DEST_HOST_IP")
-    container_name = env_str("CONTAINER_NAME", "ai-ad")
+    container_name = env_str("CONTAINER_NAME", "resilmesh_tap_ai-ad")
     dest_port = env_int("SENSOR_DEST_PORT", 9001)
     row_delay_sec = float(env_str("ROW_DELAY_SEC", "3.0"))
 
