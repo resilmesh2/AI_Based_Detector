@@ -65,7 +65,7 @@ def main():
     # -------------------------------------------------------------------
     # Configuration via environment variables
     # -------------------------------------------------------------------
-    container_name = env_str("CONTAINER_NAME", "resilmesh_tap_ai-ad")
+    container_name = env_str("CONTAINER_NAME", "resilmesh-tap-ai-ad")
     dest_host      = env_str("DEST_HOST_IP")
     dest_port      = env_int("NETWORK_DEST_PORT", 9000)
 

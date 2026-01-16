@@ -36,7 +36,7 @@ Below is a list of the key variables you need to configure:
 | Variable | Description | Default Value |
 | :--- | :--- | :--- |
 | `CSV_PATH` | The path to the csv file that contains the artifical sensor data. | `./data/BATADAL_testdataset_copy.csv` |
-| `CONTAINER_NAME` | Docker container id if anomaly detector runs inside docker. | `resilmesh_tap_ai-ad` |
+| `CONTAINER_NAME` | Docker container id if anomaly detector runs inside docker. | `resilmesh-tap-ai-ad` |
 | `DEST_HOST_IP` | This should only be used if AD is running locally. | Not exisiting or `localhost` |
 | `SENSOR_DEST_PORT` | The TCP port for sensor data communication. | `9001` |
 | `NETWORK_DEST_PORT` | The TCP port for network data communication. | `9000` |

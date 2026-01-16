@@ -1,8 +1,8 @@
 services:
-  resilmesh_tap_ai-ad:
+  resilmesh-tap-ai-ad:
     build:
       context: .
-    container_name: resilmesh_tap_ai-ad
+    container_name: resilmesh-tap-ai-ad
     restart: on-failure
     ports:
       - "9100:9100" # netwwork data TCP port
@@ -12,4 +12,4 @@ services:
     volumes:
       - ./logs:/app/logs
     depends_on:
-      - resilmesh_ap_nats
+      - resilmesh-ap-nats
